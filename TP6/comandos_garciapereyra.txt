@@ -1,0 +1,129 @@
+Paso 1------------------------------------------------------ 
+modprobe brd rd_nr=6 rd_size=563200
+
+
+Paso 2------------------------------------------------------
+gdisk /dev/ram0
+n
+Enter
+Enter
++500M
+fd00
+
+n
+Enter
+Enter
+Enter
+Enter
+w
+
+sudo gdisk /dev/ram1
+n
+Enter
+Enter
++500M
+fd00
+w
+
+sudo gdisk /dev/ram2
+n
+Enter
+Enter
++500M
+fd00
+w
+
+sudo gdisk /dev/ram3
+n
+Enter
+Enter
++500M
+fd00
+w
+
+sudo gdisk /dev/ram4
+n
+Enter
+Enter
++500M
+fd00
+w
+
+sudo gdisk /dev/ram5
+n
+Enter
+Enter
++500M
+fd00
+w
+
+
+Paso 3------------------------------------------------------
+
+mdadm --create /dev/md0 --level=5 --raid-devices=3 --force /dev/ram0p1 /dev/ram1p1 /dev/ram2p1
+
+Paso 4------------------------------------------------------
+
+mkfs.ext4 -L ACSO /dev/md0
+
+Paso 5------------------------------------------------------
+
+mkdir /acso
+mount /dev/md0 /acso
+dd if=/dev/urandom of=/tmp/bigfile bs=1M count=100
+cp /tmp/bigfile /acso/datos
+
+Paso 6------------------------------------------------------
+
+mdadm --grow /dev/md0 --level=6 --raid-devices=5 --add /dev/ram3p1 /dev/ram4p1
+
+Paso 7------------------------------------------------------
+
+sudo resize2fs /dev/md0
+
+Paso 8------------------------------------------------------
+
+mdadm --fail /dev/md0 /dev/ram2p1
+
+Paso 9------------------------------------------------------
+
+mdadm --remove /dev/md0 /dev/ram2p1
+mdadm --add /dev/md0 /dev/ram2p1
+
+Paso 10-----------------------------------------------------
+
+umount /acso
+
+Paso 11-----------------------------------------------------
+
+lvm pvcreate /dev/md0
+
+Paso 12-----------------------------------------------------
+
+lvm vgcreate vg_datos /dev/md0
+
+Paso 13-----------------------------------------------------
+
+lvm lvcreate -L 300M -n lv_vol1 vg_datos
+lvm lvcreate -L 250M -n lv_vol2 vg_datos
+
+Paso 14-----------------------------------------------------
+
+mkfs.ext4 /dev/mapper/vg_datos-lv_vol1
+mkfs.fat -F 32 /dev/mapper/vg_datos-lv_vol2
+
+Paso 18-----------------------------------------------------
+
+lvremove /dev/vg_datos/lv_vol1
+lvremove /dev/vg_datos/lv_vol2
+vgremove vg_datos
+pvremove /dev/md0
+
+Paso 19-----------------------------------------------------
+
+mdadm --stop /dev/md0
+mdadm --zero-superblock /dev/ram0p1
+mdadm --zero-superblock /dev/ram1p1
+mdadm --zero-superblock /dev/ram2p1
+mdadm --zero-superblock /dev/ram3p1
+mdadm --zero-superblock /dev/ram4p1
